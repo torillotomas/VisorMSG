@@ -1,0 +1,19 @@
+# Archivos generados por PyInstaller
+     build/
+     dist/
+     *.spec
+
+     # Archivos temporales de Python
+     __pycache__/
+     *.pyc
+     *.pyo
+
+     # Archivos temporales del sistema
+     *.tmp
+     *.log
+
+     # Ejecutable (opcional, si no quieres subirlo)
+     visor_msg.exe
+
+     # Entorno virtual
+     venv/
