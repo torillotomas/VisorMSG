@@ -12,20 +12,21 @@ class MsgViewer(QMainWindow):
         super().__init__()
         self.setWindowTitle("Visor de Archivos MSG")
         self.setGeometry(100, 100, 900, 700)
-        self.temp_files = []  # Para rastrear archivos temporales
-        self.msg = None  # Para mantener el objeto Message vivo
-        self.init_ui()
+        self.temp_files = []  # Lista para rastrear archivos temporales creados
+        self.msg = None  # Objeto Message para mantener el archivo .msg abierto
+        self.init_ui()  # Inicializa la interfaz gráfica
         
         if msg_file:
-            self.load_msg_file(msg_file)
+            self.load_msg_file(msg_file)  # Si se pasa un archivo, lo carga automáticamente
     
     def init_ui(self):
+        # Configura la interfaz principal
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout()
         central_widget.setLayout(main_layout)
 
-        # Campos para información del correo
+        # Etiquetas para mostrar información del correo
         self.subject_label = QLabel("Asunto: ")
         self.sender_label = QLabel("Remitente: ")
         self.to_label = QLabel("Destinatarios: ")
@@ -33,13 +34,13 @@ class MsgViewer(QMainWindow):
         main_layout.addWidget(self.to_label)
         main_layout.addWidget(self.subject_label)
 
-        # Área para el cuerpo del correo
+        # Área para mostrar el cuerpo del correo
         self.body_text = QTextEdit()
         self.body_text.setReadOnly(True)
         main_layout.addWidget(QLabel("Cuerpo del Correo:"))
         main_layout.addWidget(self.body_text, stretch=3)
 
-        # Área de adjuntos con scroll, tamaño limitado
+        # Área de adjuntos con scroll
         self.attachments_area = QScrollArea()
         self.attachments_area.setWidgetResizable(True)
         self.attachments_area.setFixedHeight(150)
@@ -54,7 +55,7 @@ class MsgViewer(QMainWindow):
         open_button.clicked.connect(self.open_msg_file)
         main_layout.addWidget(open_button)
 
-        # Estilo inspirado en Outlook
+        # Estilos visuales inspirados en Outlook
         self.setStyleSheet("""
             QMainWindow { background-color: #ffffff; }
             QLabel { font-size: 14px; color: #1f4e79; font-weight: bold; }
@@ -80,15 +81,18 @@ class MsgViewer(QMainWindow):
                 color: white; 
                 padding: 6px; 
                 border-radius: 4px; 
-                font-size: 14px; 
+                font-size: 20px; 
                 font-family: Calibri, Arial, sans-serif;
             }
             QPushButton:hover { background-color: #005a9e; }
         """)
 
     def load_msg_file(self, file_path):
+
+        #Carga un archivo .msg y muestra su contenido en la interfaz.
+
         try:
-            # Cerrar el objeto msg anterior, si existe
+            # Cierra el objeto msg anterior si existe
             if self.msg is not None:
                 try:
                     self.msg.close()
@@ -96,17 +100,18 @@ class MsgViewer(QMainWindow):
                     pass
                 self.msg = None
 
-            # Cargar el nuevo archivo .msg
+            # Carga el nuevo archivo .msg
             self.msg = extract_msg.Message(file_path)
             self.subject_label.setText(f"Asunto: {self.msg.subject or 'Sin asunto'}")
             self.sender_label.setText(f"Remitente: {self.msg.sender or 'Desconocido'}")
             self.to_label.setText(f"Destinatarios: {self.msg.to or 'Sin destinatarios'}")
 
-            # Procesar el cuerpo HTML o texto plano
+            # Procesa el cuerpo HTML o texto plano
             html_body = self.msg.htmlBody
             if html_body and isinstance(html_body, (str, bytes)):
                 if isinstance(html_body, bytes):
                     html_body = html_body.decode('utf-8', errors='ignore')
+                # Reemplaza imágenes embebidas (cid) por archivos temporales
                 cid_images = self.extract_cid_images(self.msg)
                 for cid, img_path in cid_images.items():
                     html_body = html_body.replace(f"cid:{cid}", f"file:///{img_path.replace('\\\\', '/').replace('\\', '/')}")
@@ -114,17 +119,19 @@ class MsgViewer(QMainWindow):
             else:
                 self.body_text.setPlainText(self.msg.body or "Sin contenido")
 
-            # Limpiar adjuntos previos
+            # Limpia los widgets de adjuntos previos
             for i in reversed(range(self.attachments_layout.count())):
                 widget = self.attachments_layout.itemAt(i).widget()
                 if widget:
                     widget.deleteLater()
             
+            # Muestra los adjuntos del correo
             self.attachments = self.msg.attachments
             for attachment in self.attachments:
                 self.add_attachment_widget(attachment)
             
         except Exception as e:
+            # Manejo de errores al cargar el archivo
             if self.msg is not None:
                 try:
                     self.msg.close()
@@ -134,6 +141,10 @@ class MsgViewer(QMainWindow):
             QMessageBox.critical(self, "Error", f"No se pudo cargar el archivo: {str(e)}")
 
     def extract_cid_images(self, msg):
+        
+        #Extrae imágenes embebidas (cid) y las guarda como archivos temporales.
+        #Devuelve un diccionario {cid: ruta_archivo}.
+        
         cid_images = {}
         for attachment in msg.attachments:
             cid = getattr(attachment, 'cid', None)
@@ -145,6 +156,9 @@ class MsgViewer(QMainWindow):
         return cid_images
 
     def add_attachment_widget(self, attachment):
+        
+        #Agrega un widget visual para cada adjunto, mostrando imagen si corresponde.
+        
         attachment_widget = QWidget()
         attachment_widget.setObjectName("attachment_widget")
         attachment_layout = QHBoxLayout()
@@ -153,6 +167,7 @@ class MsgViewer(QMainWindow):
         is_image = attachment.name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))
         
         if is_image:
+            # Si el adjunto es imagen, la muestra
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(attachment.name)[1]) as temp_file:
                 temp_file.write(attachment.data)
                 temp_path = temp_file.name
@@ -167,9 +182,11 @@ class MsgViewer(QMainWindow):
                 label = QLabel(f"Adjunto: {attachment.name} (No se pudo mostrar)")
                 attachment_layout.addWidget(label)
         else:
+            # Si no es imagen, solo muestra el nombre
             label = QLabel(f"Adjunto: {attachment.name}")
             attachment_layout.addWidget(label)
 
+        # Botón para descargar el adjunto
         download_button = QPushButton(f"Descargar: {attachment.name}")
         download_button.clicked.connect(lambda: self.download_attachment(attachment))
         attachment_layout.addWidget(download_button)
@@ -177,11 +194,17 @@ class MsgViewer(QMainWindow):
         self.attachments_layout.addWidget(attachment_widget)
 
     def open_msg_file(self):
+        
+        #Abre un diálogo para seleccionar y cargar otro archivo .msg.
+        
         file_path, _ = QFileDialog.getOpenFileName(self, "Abrir archivo MSG", "", "Archivos MSG (*.msg)")
         if file_path:
             self.load_msg_file(file_path)
 
     def download_attachment(self, attachment):
+        
+        #Permite al usuario guardar un adjunto en disco.
+        
         save_path, _ = QFileDialog.getSaveFileName(self, "Guardar adjunto", attachment.name)
         if save_path:
             try:
@@ -191,7 +214,9 @@ class MsgViewer(QMainWindow):
                 QMessageBox.critical(self, "Error", f"No se pudo guardar el adjunto: {str(e)}")
 
     def closeEvent(self, event):
-        # Cerrar el objeto msg, si existe
+        
+       #Limpia recursos al cerrar la ventana: cierra el objeto msg y elimina archivos temporales.
+        
         if self.msg is not None:
             try:
                 self.msg.close()
@@ -199,7 +224,6 @@ class MsgViewer(QMainWindow):
                 pass
             self.msg = None
         
-        # Eliminar archivos temporales
         for temp_file in self.temp_files:
             try:
                 os.unlink(temp_file)
@@ -208,6 +232,9 @@ class MsgViewer(QMainWindow):
         event.accept()
 
 def main():
+    
+    #Función principal: inicia la aplicación y muestra la ventana.
+    
     app = QApplication(sys.argv)
     
     msg_file = None
